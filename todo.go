@@ -31,29 +31,26 @@ func NewTodoApp() *TodoApp {
 func (app *TodoApp) loadTasks() {
 	data, err := ioutil.ReadFile(app.fileName)
 	if err != nil {
-		if os.IsNotExist(err) {
-			return
+		if !os.IsNotExist(err) {
+			fmt.Println("Error reading file:", err)
 		}
-		fmt.Printf("Error reading file: %v\n", err)
 		return
 	}
-
 	err = json.Unmarshal(data, &app.tasks)
 	if err != nil {
-		fmt.Printf("Error parsing JSON: %v\n", err)
+		fmt.Println("Error parsing JSON:", err)
 	}
 }
 
 func (app *TodoApp) saveTasks() {
 	data, err := json.Marshal(app.tasks)
 	if err != nil {
-		fmt.Printf("Error encoding JSON: %v\n", err)
+		fmt.Println("Error encoding JSON:", err)
 		return
 	}
-
 	err = ioutil.WriteFile(app.fileName, data, 0644)
 	if err != nil {
-		fmt.Printf("Error writing file: %v\n", err)
+		fmt.Println("Error writing file:", err)
 	}
 }
 
@@ -124,8 +121,8 @@ func (app *TodoApp) renameTask(index int, newDescription string) {
 		oldDescription := app.tasks[index].Description
 		app.tasks[index].Description = newDescription
 		app.saveTasks()
-		fmt.Printf("  From: %s\n", oldDescription)
-		fmt.Printf("  To:   %s\n", newDescription)
+		fmt.Println("  From:", oldDescription)
+		fmt.Println("  To:  ", newDescription)
 		app.listTasks()
 	} else {
 		fmt.Println("Invalid task number.")
@@ -133,16 +130,13 @@ func (app *TodoApp) renameTask(index int, newDescription string) {
 }
 
 func (app *TodoApp) processCommand(command string) {
-	parts := strings.Fields(command)
-	if len(parts) == 0 {
-		return
-	}
-
+	parts := strings.SplitN(command, " ", 2)
 	action := strings.ToLower(parts[0])
+
 	switch action {
 	case "a":
 		if len(parts) > 1 {
-			app.addTask(strings.Join(parts[1:], " "))
+			app.addTask(parts[1])
 		} else {
 			fmt.Println("Usage: a <task description>")
 		}
@@ -150,7 +144,8 @@ func (app *TodoApp) processCommand(command string) {
 		app.listTasks()
 	case "x":
 		if len(parts) > 1 {
-			if taskNumber, err := strconv.Atoi(parts[1]); err == nil {
+			taskNumber, err := strconv.Atoi(parts[1])
+			if err == nil {
 				app.toggleTaskCompletion(taskNumber - 1)
 			} else {
 				fmt.Println("Invalid task number.")
@@ -160,7 +155,8 @@ func (app *TodoApp) processCommand(command string) {
 		}
 	case "d":
 		if len(parts) > 1 {
-			if taskNumber, err := strconv.Atoi(parts[1]); err == nil {
+			taskNumber, err := strconv.Atoi(parts[1])
+			if err == nil {
 				app.removeTask(taskNumber - 1)
 			} else {
 				fmt.Println("Invalid task number.")
@@ -170,7 +166,8 @@ func (app *TodoApp) processCommand(command string) {
 		}
 	case "h":
 		if len(parts) > 1 {
-			if taskNumber, err := strconv.Atoi(parts[1]); err == nil {
+			taskNumber, err := strconv.Atoi(parts[1])
+			if err == nil {
 				app.moveTaskUp(taskNumber - 1)
 			} else {
 				fmt.Println("Invalid task number.")
@@ -180,7 +177,8 @@ func (app *TodoApp) processCommand(command string) {
 		}
 	case "l":
 		if len(parts) > 1 {
-			if taskNumber, err := strconv.Atoi(parts[1]); err == nil {
+			taskNumber, err := strconv.Atoi(parts[1])
+			if err == nil {
 				app.moveTaskDown(taskNumber - 1)
 			} else {
 				fmt.Println("Invalid task number.")
@@ -189,17 +187,22 @@ func (app *TodoApp) processCommand(command string) {
 			fmt.Println("Usage: l <task number>")
 		}
 	case "r":
-		if len(parts) > 2 {
-			if taskNumber, err := strconv.Atoi(parts[1]); err == nil {
-				app.renameTask(taskNumber-1, strings.Join(parts[2:], " "))
+		if len(parts) > 1 {
+			subParts := strings.SplitN(parts[1], " ", 2)
+			if len(subParts) == 2 {
+				taskNumber, err := strconv.Atoi(subParts[0])
+				if err == nil {
+					app.renameTask(taskNumber-1, subParts[1])
+				} else {
+					fmt.Println("Invalid task number.")
+				}
 			} else {
-				fmt.Println("Invalid task number.")
+				fmt.Println("Usage: r <task number> <new task description>")
 			}
 		} else {
 			fmt.Println("Usage: r <task number> <new task description>")
 		}
 	case "q":
-		fmt.Println("Goodbye!")
 		os.Exit(0)
 	case "?":
 		app.printHelp()
@@ -228,7 +231,10 @@ func (app *TodoApp) run() {
 	for {
 		fmt.Print("> ")
 		if scanner.Scan() {
-			app.processCommand(scanner.Text())
+			input := scanner.Text()
+			if input != "" {
+				app.processCommand(input)
+			}
 		} else {
 			break
 		}
